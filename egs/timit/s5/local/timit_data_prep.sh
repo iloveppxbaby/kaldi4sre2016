@@ -40,11 +40,14 @@ fi
 uppercased=false
 train_dir=train
 test_dir=test
+
 if [ -d $*/TRAIN ]; then
   uppercased=true
   train_dir=TRAIN
   test_dir=TEST
 fi
+
+uppercased=false
 
 tmpdir=$(mktemp -d /tmp/kaldi.XXXX);
 trap 'rm -rf "$tmpdir"' EXIT
@@ -67,10 +70,11 @@ for x in train dev test; do
   # First, find the list of audio files (use only si & sx utterances).
   # Note: train & test sets are under different directories, but doing find on 
   # both and grepping for the speakers will work correctly.
-  find $*/{$train_dir,$test_dir} -not \( -iname 'SA*' \) -iname '*.WAV' \
+  find $*/{$train_dir,$test_dir} -not \( -iname 'sa*' \) -iname '*.wav' \
     | grep -f $tmpdir/${x}_spk > ${x}_sph.flist
 
-  sed -e 's:.*/\(.*\)/\(.*\).WAV$:\1_\2:i' ${x}_sph.flist \
+  #sed -e 's:.*/\(.*\)/\(.*\).wav$:\1_\2:i' ${x}_sph.flist \
+  sed -e 's:.*/\(.*\)/\(.*\).wav$:\1_\2:g' ${x}_sph.flist \
     > $tmpdir/${x}_sph.uttids
   paste $tmpdir/${x}_sph.uttids ${x}_sph.flist \
     | sort -k1,1 > ${x}_sph.scp
@@ -80,13 +84,14 @@ for x in train dev test; do
   # Now, Convert the transcripts into our format (no normalization yet)
   # Get the transcripts: each line of the output contains an utterance 
   # ID followed by the transcript.
-  find $*/{$train_dir,$test_dir} -not \( -iname 'SA*' \) -iname '*.PHN' \
+  find $*/{$train_dir,$test_dir} -not \( -iname 'SA*' \) -iname '*.phn' \
     | grep -f $tmpdir/${x}_spk > $tmpdir/${x}_phn.flist
-  sed -e 's:.*/\(.*\)/\(.*\).PHN$:\1_\2:i' $tmpdir/${x}_phn.flist \
+  #sed -e 's:.*/\(.*\)/\(.*\).phn$:\1_\2:i' $tmpdir/${x}_phn.flist \
+  sed -e 's:.*/\(.*\)/\(.*\).phn$:\1_\2:g' $tmpdir/${x}_phn.flist \
     > $tmpdir/${x}_phn.uttids
   while read line; do
     [ -f $line ] || error_exit "Cannot find transcription file '$line'";
-    cut -f3 -d' ' "$line" | tr '\n' ' ' | sed -e 's: *$:\n:'
+    cut -f3 -d' ' "$line" | tr '\n' ' ' | sed -e 's: *$::'
   done < $tmpdir/${x}_phn.flist > $tmpdir/${x}_phn.trans
   paste $tmpdir/${x}_phn.uttids $tmpdir/${x}_phn.trans \
     | sort -k1,1 > ${x}.trans
@@ -106,7 +111,7 @@ for x in train dev test; do
 
   # Prepare STM file for sclite:
   wav-to-duration scp:${x}_wav.scp ark,t:${x}_dur.ark || exit 1
-  awk -v dur=${x}_dur.ark \
+  gawk -v dur=${x}_dur.ark \
   'BEGIN{ 
      while(getline < dur) { durH[$1]=$2; } 
      print ";; LABEL \"O\" \"Overall\" \"Overall\"";
